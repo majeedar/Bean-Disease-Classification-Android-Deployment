@@ -6,14 +6,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -41,8 +39,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -149,6 +149,9 @@ private fun ResultContent(
     val notSure = prediction.confidenceLevel == ConfidenceLevel.NOT_SURE
     val percent = (prediction.confidence * 100).roundToInt()
     val image = remember(result.photo) { result.photo.asImageBitmap() }
+    // In landscape keep the photo small enough that the diagnosis is visible without scrolling.
+    val configuration = LocalConfiguration.current
+    val photoSize = minOf(320, configuration.screenWidthDp - 32, (configuration.screenHeightDp * 0.45f).toInt()).dp
 
     Column(
         modifier = Modifier
@@ -162,9 +165,7 @@ private fun ResultContent(
             bitmap = image,
             contentDescription = stringResource(R.string.result_photo_description),
             modifier = Modifier
-                .widthIn(max = 320.dp)
-                .fillMaxWidth()
-                .aspectRatio(1f)
+                .size(photoSize)
                 .clip(MaterialTheme.shapes.large),
         )
 
@@ -259,8 +260,8 @@ private fun AdviceSections(info: DiseaseInfo) {
             )
             section.text?.let { Text(it, style = MaterialTheme.typography.bodyLarge) }
             section.bullets.forEach { bullet ->
-                Row {
-                    Text("•  ", style = MaterialTheme.typography.bodyLarge)
+                Row(modifier = Modifier.semantics(mergeDescendants = true) {}) {
+                    Text("•  ", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.clearAndSetSemantics {})
                     Text(bullet, style = MaterialTheme.typography.bodyLarge)
                 }
             }

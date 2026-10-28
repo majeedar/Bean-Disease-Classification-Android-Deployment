@@ -14,6 +14,9 @@ private val LightColors = lightColorScheme(
     onPrimaryContainer = Color(0xFF002204),
     secondary = Color(0xFF52634F),
     onSecondary = Color.White,
+    background = Color(0xFFF7FAF4),
+    surface = Color(0xFFF7FAF4),
+    surfaceContainerHighest = Color(0xFFE2E6DF),
 )
 
 private val DarkColors = darkColorScheme(
@@ -23,6 +26,9 @@ private val DarkColors = darkColorScheme(
     onPrimaryContainer = Color(0xFFB8E6B0),
     secondary = Color(0xFFB9CCB4),
     onSecondary = Color(0xFF253423),
+    background = Color(0xFF111411),
+    surface = Color(0xFF111411),
+    surfaceContainerHighest = Color(0xFF323631),
 )
 
 // No dynamic colour: the green brand stays recognisable for users across phones.
