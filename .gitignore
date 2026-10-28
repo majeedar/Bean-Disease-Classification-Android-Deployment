@@ -24,3 +24,6 @@ __pycache__/
 
 # Generated download site (APKs, QR codes)
 site/public/
+
+# Real server address and key path (public repo)
+deploy/deploy.env

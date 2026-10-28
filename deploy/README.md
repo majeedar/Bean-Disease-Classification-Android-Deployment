@@ -1,10 +1,28 @@
 # Publishing BeanDoc (signed APK + download website)
 
-The website is a single static page served by Caddy on the Hetzner VM. It offers a direct download link and a QR code that both point at `https://<domain>/beandoc.apk`, which is always the latest version.
+The website is a single static page with a direct download link and a QR code that both point at `https://<host>/beandoc.apk`, which is always the latest version.
 
-## 1. Create the signing key (once)
+BeanDoc runs on a Hetzner Ubuntu VM that it shares with other apps. Static files are served by the host's nginx with a Let's Encrypt certificate from certbot. The server address and SSH key live in `deploy/deploy.env`, which is gitignored; copy [deploy.env.example](deploy.env.example) to create it.
 
-Every release must be signed with the **same** key, or phones refuse to install it as an update. Create it once and back it up somewhere safe outside this repo (password manager + offline copy). If you lose it, every user must uninstall and reinstall.
+## Release an update
+
+1. Increase `versionCode` (and `versionName`) in `app/build.gradle.kts`. Android will not install an update with the same or a lower `versionCode`.
+2. Build, generate the site, upload:
+   ```bash
+   source deploy/deploy.env
+   ./gradlew test assembleRelease
+   python tools/build_site.py --base-url "$BASE_URL"     # needs: pip install segno
+   bash deploy/deploy.sh
+   ```
+3. On a phone: open the site or scan the QR code, install the update over the previous version, and check that the SHA-256 on the page matches.
+
+`deploy.sh` uploads to a new folder and swaps it in with one rename, so visitors never see a half-uploaded site. Older versioned APKs are kept.
+
+## One-time setup
+
+### 1. Signing key
+
+Every release must be signed with the **same** key, or phones refuse to install it as an update. Create it once, outside the repo, and back up the file and password (password manager + offline copy). If you lose it, every user must uninstall and reinstall.
 
 ```bash
 keytool -genkeypair -v -keystore beandoc-release.jks -alias beandoc -keyalg RSA -keysize 4096 -validity 10000
@@ -12,7 +30,7 @@ keytool -genkeypair -v -keystore beandoc-release.jks -alias beandoc -keyalg RSA 
 
 (`keytool` is in Android Studio's JDK: `"C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe"`.)
 
-Add to `local.properties` (gitignored; never commit it):
+Add to `local.properties` (gitignored):
 
 ```properties
 beandoc.keystore=C:/path/outside/repo/beandoc-release.jks
@@ -21,42 +39,40 @@ beandoc.key.alias=beandoc
 beandoc.key.password=...
 ```
 
-Or set the environment variables `BEANDOC_KEYSTORE`, `BEANDOC_KEYSTORE_PASSWORD`, `BEANDOC_KEY_ALIAS`, `BEANDOC_KEY_PASSWORD`.
+Or set `BEANDOC_KEYSTORE`, `BEANDOC_KEYSTORE_PASSWORD`, `BEANDOC_KEY_ALIAS`, `BEANDOC_KEY_PASSWORD`. Without a key, `assembleRelease` produces an unsigned APK and `build_site.py` refuses to publish it.
 
-## 2. Set up the server (once)
+### 2. Server with nginx (shared VM, as deployed)
 
-On the Hetzner VM (Debian/Ubuntu):
+On a VM that already runs other sites, make **additive changes only**: no firewall or sshd changes, and never reload nginx when `nginx -t` fails. As root:
 
 ```bash
-# Caddy: https://caddyserver.com/docs/install#debian-ubuntu-raspbian
-sudo apt install -y caddy rsync
-sudo mkdir -p /var/www/beandoc
-sudo chown "$USER" /var/www/beandoc
+install -d -o app -g app /home/app/beandoc/site
+setfacl -m u:www-data:x /home/app                      # nginx may traverse /home/app, not list it
+sed 's/beandoc.example.com/<your-host>/' nginx-beandoc.conf > /etc/nginx/sites-available/beandoc
+ln -s /etc/nginx/sites-available/beandoc /etc/nginx/sites-enabled/beandoc
+nginx -t && systemctl reload nginx
+certbot --nginx -d <your-host> --redirect
 ```
 
-Point your domain's DNS A (and AAAA) record at the VM, open ports 80 and 443 in the Hetzner firewall, then copy `deploy/Caddyfile` to `/etc/caddy/Caddyfile`, replace `beandoc.example.com` with your domain, and run `sudo systemctl reload caddy`. Caddy fetches the HTTPS certificate automatically.
+No domain? `<your-ip-with-dashes-or-dots>.sslip.io` resolves to the server's IP and works with Let's Encrypt.
 
-## 3. Release a version
+[nginx-beandoc.conf](nginx-beandoc.conf) sets the APK MIME type (`application/vnd.android.package-archive`, so Android offers "Install"), `no-cache` for the stable link, long caching for versioned APKs, and a strict Content-Security-Policy.
 
-1. Increase `versionCode` (and `versionName`) in `app/build.gradle.kts`. Android will not install an update with the same or a lower `versionCode`.
-2. Build and test:
-   ```bash
-   ./gradlew test assembleRelease
-   ```
-3. Build the site (needs `pip install segno`):
-   ```bash
-   python tools/build_site.py --base-url https://<your-domain>
-   ```
-   This writes `site/public/`: the page, `beandoc.apk`, `beandoc-<version>.apk`, and the QR code as SVG and PNG.
-4. Open `site/public/index.html` in a browser to check it.
-5. Upload:
-   ```bash
-   BEANDOC_HOST=<user>@<server> ./deploy/deploy.sh
-   ```
-6. On a phone: scan the QR code (from the screen and from a printed copy), install, and check that the SHA-256 on the page matches. When releasing an update, install it over the previous version.
+### Alternative: dedicated server with Caddy
+
+On a server that runs nothing else, [Caddyfile](Caddyfile) does the same with automatic HTTPS:
+
+```bash
+sudo apt install -y caddy
+sudo mkdir -p /var/www/beandoc && sudo chown "$USER" /var/www/beandoc
+sudo cp deploy/Caddyfile /etc/caddy/Caddyfile     # replace beandoc.example.com with your domain
+sudo systemctl reload caddy
+```
+
+Then set `REMOTE_DIR=/var/www/beandoc` in `deploy/deploy.env`.
 
 ## Notes
 
 - The QR code encodes the stable link, so printed posters keep working after updates.
-- The page has no JavaScript, analytics, external fonts or CDNs. Caddy's access log (`/var/log/caddy/beandoc.log`) is enough to count downloads.
-- The app itself has no internet permission and never checks for updates: tell users to come back to the page for new versions, or share the APK phone to phone.
+- The page has no JavaScript, analytics, external fonts or CDNs. The web server's access log is enough to count downloads.
+- The app itself has no internet permission and never checks for updates: users come back to the page for new versions, or share the APK phone to phone.
