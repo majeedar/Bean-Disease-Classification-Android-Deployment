@@ -22,7 +22,15 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Phones are ARM; x86 libraries only serve emulators and would add ~13 MB to the download.
+            ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") }
         }
+    }
+
+    packaging {
+        // Compress native libraries in the APK: smaller download over weak mobile data,
+        // at the cost of extracting them once on install.
+        jniLibs { useLegacyPackaging = true }
     }
 
     compileOptions {

@@ -84,6 +84,10 @@ Training (`bean_leaf_disease.ipynb` in the training repo) loads images with `ker
 Use the **latest stable** versions of every library at build time; check Maven/Google Maven rather than relying on memory.
 Prefer LiteRT over legacy TFLite because Google Play requires 16 KB memory page support for apps targeting Android 15+, which recent LiteRT builds provide.
 
+**Stay on the LiteRT 1.x line** (1.4.2 at the time of writing; native libraries verified 16 KB-aligned) rather than 2.x. LiteRT 2.x pulls in Play Services, WorkManager, Room and an alpha `ai-delivery` library for downloading models, adds FOREGROUND_SERVICE / WAKE_LOCK / ACCESS_NETWORK_STATE / RECEIVE_BOOT_COMPLETED permissions, and made the APK ~3× larger, all for features this offline app does not use. Both lines produce identical parity results with this model.
+
+The release build keeps only `arm64-v8a` and `armeabi-v7a` native libraries and compresses them (`useLegacyPackaging`) to keep the download small (~9 MB). The manifest explicitly removes `ACCESS_NETWORK_STATE` and `INTERNET` in case a library adds them.
+
 ### Gradle notes
 ```kotlin
 android {
