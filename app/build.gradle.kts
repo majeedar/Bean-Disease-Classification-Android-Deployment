@@ -1,7 +1,25 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
+
+/**
+ * Release signing key, from local.properties or environment variables (never committed):
+ *   beandoc.keystore / BEANDOC_KEYSTORE                    path to the .jks file
+ *   beandoc.keystore.password / BEANDOC_KEYSTORE_PASSWORD
+ *   beandoc.key.alias / BEANDOC_KEY_ALIAS
+ *   beandoc.key.password / BEANDOC_KEY_PASSWORD
+ * Without them, assembleRelease produces an unsigned APK.
+ */
+val localProperties = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+fun signingValue(property: String, env: String): String? =
+    localProperties.getProperty(property) ?: System.getenv(env)
+
+val releaseKeystore = signingValue("beandoc.keystore", "BEANDOC_KEYSTORE")
 
 android {
     namespace = "com.majeedar.beandoc"
@@ -17,8 +35,20 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = signingValue("beandoc.keystore.password", "BEANDOC_KEYSTORE_PASSWORD")
+                keyAlias = signingValue("beandoc.key.alias", "BEANDOC_KEY_ALIAS")
+                keyPassword = signingValue("beandoc.key.password", "BEANDOC_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

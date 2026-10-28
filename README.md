@@ -128,7 +128,21 @@ export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"
 ./gradlew assembleRelease           # release APK (ARM only, shrunk with R8)
 ```
 
-Use `gradlew.bat` from `cmd`/PowerShell. The release build is unsigned until a signing key is configured (see `docs/claude-code-prompts.md`, phase 8).
+Use `gradlew.bat` from `cmd`/PowerShell. The release build is unsigned until a signing key is configured.
+
+---
+
+## Download website
+
+The APK is published on a small static site with a direct link (`https://<domain>/beandoc.apk`, always the latest version) and a downloadable QR code for posters and flyers. Everything needed is in this repo:
+
+| File | Purpose |
+|---|---|
+| [deploy/README.md](deploy/README.md) | Step-by-step: signing key, server setup, releasing a version |
+| `site/index.template.html` | The page (no JavaScript, analytics or external resources; works on small phones, light/dark) |
+| `tools/build_site.py` | Copies the signed APK, generates the QR code locally, fills in version, size and SHA-256 → `site/public/` |
+| `deploy/Caddyfile` | HTTPS, APK MIME type, caching, security headers |
+| `deploy/deploy.sh` | Uploads `site/public/` to the server with rsync |
 
 ---
 

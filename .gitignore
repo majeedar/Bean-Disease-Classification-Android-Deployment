@@ -21,3 +21,6 @@ captures/
 # Python
 __pycache__/
 .venv/
+
+# Generated download site (APKs, QR codes)
+site/public/

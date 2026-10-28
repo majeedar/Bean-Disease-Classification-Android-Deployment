@@ -1,0 +1,31 @@
+# Caddy config for the BeanDoc download site. Caddy gets and renews the HTTPS certificate automatically.
+# Replace beandoc.example.com with your domain (its DNS A/AAAA record must point at this server).
+# Install: sudo cp deploy/Caddyfile /etc/caddy/Caddyfile && sudo systemctl reload caddy
+
+beandoc.example.com {
+	root * /var/www/beandoc
+	encode gzip
+	file_server
+
+	# Android needs this MIME type to offer "Install" after the download.
+	@apk path *.apk
+	header @apk Content-Type application/vnd.android.package-archive
+
+	# The stable link changes with each release; versioned files never change.
+	header /beandoc.apk Cache-Control "no-cache"
+	header /beandoc-qr.* Cache-Control "public, max-age=86400"
+	@versioned path_regexp ^/beandoc-[0-9].*\.apk$
+	header @versioned Cache-Control "public, max-age=31536000, immutable"
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		Content-Security-Policy "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+	}
+
+	# Access log only: enough to count downloads, no analytics or tracking.
+	log {
+		output file /var/log/caddy/beandoc.log
+	}
+}
