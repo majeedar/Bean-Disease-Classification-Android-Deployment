@@ -55,7 +55,7 @@ Read labels from `labels.txt` at runtime; never hard-code the order in more than
 1. Decode the photo to an `ARGB_8888` Bitmap, downsampling large photos while decoding. Min SDK is 24, so use `BitmapFactory` with `inSampleSize` (`ImageDecoder` exists only on API 28+). Keep at least 224 px on the shortest side.
 2. **Apply EXIF rotation** (camera photos are often stored sideways). Use `androidx.exifinterface`.
 3. **Center-crop to a square** (shortest side).
-4. **Resize to 224×224** with bilinear filtering exactly as `tf.image.resize(method="bilinear", antialias=False)` does it (half-pixel centers), keeping the interpolated values as floats. This is done in pure Kotlin in `ImagePreprocessor`, **not** with `Bitmap.createScaledBitmap`: Android's resampler uses different sample positions and was measured to shift predictions by up to 0.03. `tools/make_parity_set.py` uses the same TF resize by default (`--resize tf`).
+4. **Resize to 224×224** with bilinear filtering exactly as `tf.image.resize(method="bilinear", antialias=False)` does it (half-pixel centers), keeping the interpolated values as floats. This is done in pure Kotlin in `ImagePreprocessor`, **not** with `Bitmap.createScaledBitmap`: Android's resampler is implementation-defined (Skia, varies by Android version) and is not guaranteed to match TF's sample positions, while an exact port makes the model input provably identical to Python's. `tools/make_parity_set.py` uses the same TF resize by default (`--resize tf`).
 5. Write the values into a direct `ByteBuffer` (native byte order) as float32 R, G, B (0–255), row by row (steps 4 and 5 happen together).
 
 Measured on the emulator: Android's JPEG decoding is bit-identical to PIL's, and the final model input matches Python to within 0.001.

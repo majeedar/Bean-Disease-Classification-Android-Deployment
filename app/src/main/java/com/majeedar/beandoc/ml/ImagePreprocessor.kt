@@ -19,8 +19,8 @@ object ImagePreprocessor {
      *
      * Resizes with exactly the maths of `tf.image.resize(method="bilinear", antialias=False)`
      * (half-pixel centers), which training and tools/make_parity_set.py use, and keeps the
-     * interpolated values as floats like TF does. Android's createScaledBitmap samples differently
-     * and measurably shifts predictions, so do not resize with it.
+     * interpolated values as floats like TF does. Do not resize with createScaledBitmap: its sampling
+     * is implementation-defined and not guaranteed to match, while this port is unit-tested against TF.
      *
      * Values stay raw 0–255: the model normalises internally, so do NOT divide by 255.
      */
