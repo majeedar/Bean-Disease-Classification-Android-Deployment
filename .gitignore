@@ -27,3 +27,6 @@ site/public/
 
 # Real server address and key path (public repo)
 deploy/deploy.env
+
+# Release upload staging (APK lives in GitHub Releases, not git)
+release/

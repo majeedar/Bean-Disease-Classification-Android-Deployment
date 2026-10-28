@@ -17,6 +17,26 @@ This repository is **Phase 2 (deployment)** of the project: it takes the trained
 |:---:|:---:|:---:|:---:|
 | ![Angular leaf spot](docs/screenshots/result_angular_leaf_spot.jpg) | ![Bean rust](docs/screenshots/result_bean_rust.jpg) | ![Healthy](docs/screenshots/result_healthy.jpg) | ![Not sure](docs/screenshots/result_not_sure.jpg) |
 
+## Try it
+
+<table>
+<tr>
+<td>
+
+[![Download APK](https://img.shields.io/badge/Download-BeanDoc.apk%20(8.8%20MB)-2E7D32?style=for-the-badge&logo=android&logoColor=white)](https://github.com/majeedar/Bean-Disease-Classification-Android-Deployment/releases/latest/download/BeanDoc.apk)
+
+1. Open the link on an Android phone (7.0 or newer), or scan the QR code.
+2. Open `BeanDoc.apk`; if asked, allow installing from this source.
+3. Tap **Install**, then **Open**. No account, no internet needed.
+
+All versions and SHA-256 checksums: [Releases](https://github.com/majeedar/Bean-Disease-Classification-Android-Deployment/releases).
+No bean leaves at hand? The [parity test images](app/src/androidTest/assets/parity) are real field photos you can pick from the gallery.
+
+</td>
+<td><img src="docs/download-qr.png" width="180" alt="QR code: download BeanDoc.apk"></td>
+</tr>
+</table>
+
 ---
 
 ## Highlights
