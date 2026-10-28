@@ -102,7 +102,7 @@ flowchart LR
     U[Camera capture<br/>or gallery Uri] --> L["ImageLoader<br/>BitmapFactory + inSampleSize<br/>EXIF orientation<br/>center square crop"]
     L --> PP["ImagePreprocessor (pure Kotlin)<br/>TF-exact bilinear → 224×224<br/>float32 RGB 0–255"]
     PP --> C["BeanClassifier<br/>LiteRT Interpreter, 2–4 CPU threads<br/>Mutex-serialised"]
-    C --> V["ScanViewModel<br/>StateFlow&lt;ScanState&gt;"]
+    C --> V["ScanViewModel<br/>StateFlow of ScanState"]
     V --> UI["Result screen<br/>≥0.85 Very likely · ≥0.70 Likely · else Not sure"]
 ```
 
