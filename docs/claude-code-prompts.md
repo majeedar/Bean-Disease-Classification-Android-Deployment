@@ -134,6 +134,39 @@ placeholders for screenshots of each screen. Report anything I must check by han
 
 ---
 
+## Phase 8 — Signed release + download website
+
+First, create the release keystore yourself (once) and **back it up outside the repo**:
+
+```bash
+keytool -genkeypair -v -keystore beandoc-release.jks -alias beandoc -keyalg RSA -keysize 4096 -validity 10000
+```
+
+Then prompt (replace the domain):
+
+```
+Follow AGENTS.md section 11. Domain: beandoc.example.com.
+
+1. Release signing: read the keystore path, alias and passwords from local.properties
+   or environment variables (never commit them). Make ./gradlew assembleRelease produce
+   a signed APK and print its versionName, versionCode, size and SHA-256.
+2. Create site/ with a single static index.html (no JavaScript frameworks, no
+   analytics, no external fonts or CDNs): app name, short description, big "Download
+   APK" button using the direct link, version, file size, SHA-256, a QR code that opens
+   the direct link, buttons to download the QR code as SVG and PNG for printing,
+   "Install unknown apps" steps, and the disclaimer. Must work on a small phone screen.
+3. tools/build_site.py: copies the release APK to site/beandoc.apk and
+   site/beandoc-<versionName>.apk, generates site/beandoc-qr.svg and site/beandoc-qr.png
+   locally with segno (no online QR service), and fills version, size and SHA-256
+   into index.html.
+4. deploy/Caddyfile (HTTPS, correct APK MIME type) and deploy/deploy.sh (rsync site/
+   to the VM). Do not run the deploy; I will.
+```
+
+**You verify:** on a phone, scan the QR code from the screen and from a printed copy; the download starts, the APK installs, and the checksum on the page matches. Install the next version over the old one (same signing key, higher versionCode) to make sure updates work.
+
+---
+
 ## Tips for working with Claude Code
 
 - Start each session with: *"Read CLAUDE.md and AGENTS.md, then tell me what phase we're on."*

@@ -18,7 +18,7 @@ The app must work **fully offline**. Many users are in rural areas with weak or 
 ### Target users
 - Smallholder bean farmers and agricultural extension officers
 - Mixed literacy levels, so use icons, colours and short sentences
-- Older, cheaper phones (2–3 GB RAM, Android 8+)
+- Older, cheaper phones (2–3 GB RAM, Android 7.0+ / API 24)
 
 ---
 
@@ -52,13 +52,15 @@ Trained in [Bean-Disease-Classification](https://github.com/majeedar/Bean-Diseas
 Read labels from `labels.txt` at runtime; never hard-code the order in more than one place.
 
 ### Preprocessing pipeline (must match training)
-1. Decode the photo to an `ARGB_8888` Bitmap.
+1. Decode the photo to an `ARGB_8888` Bitmap, downsampling large photos while decoding. Min SDK is 24, so use `BitmapFactory` with `inSampleSize` (`ImageDecoder` exists only on API 28+). Keep at least 224 px on the shortest side.
 2. **Apply EXIF rotation** (camera photos are often stored sideways). Use `androidx.exifinterface`.
 3. **Center-crop to a square** (shortest side).
-4. **Resize to 224×224** with bilinear filtering.
+4. **Resize to 224×224** with plain bilinear filtering (`Bitmap.createScaledBitmap(..., filter = true)`). This matches `tf.image.resize` without antialiasing, which `tools/make_parity_set.py` uses by default (`--resize tf`). The `resize` field in `expected.json` records which method the reference used.
 5. Copy pixels into a direct `ByteBuffer` (native byte order) as float32 R, G, B (0–255), row by row.
 
 Training images were resized to 224×224 without cropping, but a center crop is closer to how a farmer frames a leaf. If parity tests (section 8) fail, try plain resize without crop to compare.
+
+Training (`bean_leaf_disease.ipynb` in the training repo) loads images with `keras.utils.image_dataset_from_directory(image_size=(224, 224))` and keeps the defaults: bilinear `tf.image.resize`, no antialias, no crop. The iBean training images are square, so the crop is a no-op on them. Do not use the PIL snippet in that repo's README as the reference: `Image.resize` without `resample` is not TF bilinear.
 
 ---
 
@@ -69,7 +71,7 @@ Training images were resized to 224×224 without cropping, but a center crop is 
 | Language | Kotlin |
 | UI | Jetpack Compose + Material 3 |
 | Camera | CameraX (`camera-core`, `camera-camera2`, `camera-lifecycle`, `camera-view`) |
-| Inference | **LiteRT** (`com.google.ai.edge.litert:litert`), the successor of TensorFlow Lite. The API is still `org.tensorflow.lite.Interpreter`. Fallback: `org.tensorflow:tensorflow-lite:2.16.1`. |
+| Inference | **LiteRT** (`com.google.ai.edge.litert:litert`), the successor of TensorFlow Lite. The API is still `org.tensorflow.lite.Interpreter`. `FileUtil.loadMappedFile` lives in `litert-support`; alternatively memory-map the asset yourself (`AssetFileDescriptor` + `FileChannel.map`) and skip that dependency. Fallback: `org.tensorflow:tensorflow-lite:2.16.1`. |
 | Image helpers | `androidx.exifinterface` |
 | Async | Kotlin coroutines; run inference on `Dispatchers.Default` |
 | Architecture | Single-activity, MVVM (`ViewModel` + `StateFlow`) |
@@ -101,13 +103,15 @@ app/src/main/
 │   ├── bean_model.tflite
 │   └── labels.txt
 ├── java/<package>/
+│   ├── BeanDocApp.kt                # Application: owns the app-scoped BeanClassifier (lazy)
 │   ├── MainActivity.kt
 │   ├── ml/
 │   │   ├── BeanClassifier.kt        # loads model, runs inference, returns Prediction
-│   │   ├── ImagePreprocessor.kt     # EXIF rotate, center crop, resize, to ByteBuffer
+│   │   ├── ImageLoader.kt           # Uri -> decode (downsampled), EXIF rotate, center crop, resize (Android)
+│   │   ├── ImagePreprocessor.kt     # pure Kotlin: ARGB IntArray -> float ByteBuffer (JVM-testable)
 │   │   └── Prediction.kt            # data class: label, confidence, all probabilities
 │   ├── data/
-│   │   └── DiseaseInfo.kt           # advice content, keyed by label
+│   │   └── DiseaseInfo.kt           # looks up advice/colour/icon by label, with a generic fallback
 │   ├── ui/
 │   │   ├── home/HomeScreen.kt
 │   │   ├── camera/CameraScreen.kt
@@ -133,13 +137,20 @@ app/src/main/
 - Full-screen preview with a square guide frame overlay and the hint "Place one leaf inside the frame"
 - Big shutter button; flash toggle
 - Capture with `ImageCapture`, at a reasonable resolution (e.g. ~1280 px longest side is plenty, since the model sees 224 px)
+- Save each capture to a file in `cacheDir` (not an in-memory `ImageProxy`) so its rotation is in EXIF. Camera and gallery photos then both arrive as a `Uri` and share one decode path
+- Ignore the shutter while a photo is being analysed
 - Handle permission denial gracefully with an explanation and a button to open settings
 
 **Inference**
-- `BeanClassifier` is created **once** (e.g. in the ViewModel or an application-scoped singleton) and reused; the model is memory-mapped with `FileUtil.loadMappedFile` or equivalent
+- `BeanClassifier` is an **application-scoped singleton**, created lazily from the `Application` class and reused; the model is memory-mapped (see section 3)
+- The `Interpreter` is not thread-safe: serialise `classify()` with a `Mutex`. Never close it while the app is in use. In particular, do **not** close it in `ScanViewModel.onCleared()`, because inference may still be running on another thread
 - Run on a background dispatcher; show a short progress indicator
-- Interpreter options: 2–4 threads. Optionally try the GPU delegate or XNNPACK, but **CPU must always work** as a fallback
-- Close the interpreter in `onCleared()` / when no longer needed
+- Interpreter options: 2–4 threads on CPU (XNNPACK is on by default). No GPU delegate in v1; it adds size and device-specific bugs for little gain on this model
+
+**State and navigation**
+- One `ScanViewModel`, scoped to the navigation graph, exposes a `StateFlow<ScanState>` (`Idle`, `Analyzing`, `Result`, `Error`). Screens read the photo and result from it; never pass Bitmaps or Uris through navigation arguments
+- While the state is `Analyzing`, ignore new photos (shutter or gallery)
+- If the Result screen opens with no result (e.g. after process death), return to Home instead of crashing
 
 **Result screen**
 - The photo (cropped square, as the model saw it)
@@ -172,7 +183,7 @@ app/src/main/
 - Text-to-speech reading of the result for low-literacy users
 - Live classification on the camera preview (`ImageAnalysis`)
 - Optional, consent-based saving of photos to help improve the model later
-- "Not a bean leaf" class (needs a retrained model; app should already handle a different `labels.txt` length without code changes)
+- "Not a bean leaf" class (needs a retrained model; app should already handle a different `labels.txt` length without code changes, via the `DiseaseInfo` fallback in section 7)
 
 ---
 
@@ -221,10 +232,11 @@ Put this in `strings.xml` (not hard-coded in Kotlin), keyed by label. Keep sente
 - Kotlin idioms, no `!!` in production code; handle nulls explicitly
 - All UI text in `strings.xml`; no hard-coded user-facing strings
 - No blocking work on the main thread (decoding, preprocessing, inference)
-- Downscale large photos while decoding (`inSampleSize` / `ImageDecoder` target size) to avoid out-of-memory errors on cheap phones
+- Downscale large photos while decoding (`BitmapFactory` + `inSampleSize`; see section 2) to avoid out-of-memory errors on cheap phones
 - Recycle intermediate bitmaps where practical
 - `BeanClassifier` must validate at load time that the model's input shape is `[1, 224, 224, 3]` and the output length equals the number of labels; fail with a clear error otherwise
-- Keep `ImagePreprocessor` a pure function (Bitmap in → ByteBuffer out) so it is unit-testable
+- Keep `ImagePreprocessor` a pure Kotlin function (224×224 ARGB `IntArray` in → float `ByteBuffer` out) with no `android.*` imports, so it runs in JVM unit tests. `android.graphics.Bitmap` is a stub on the JVM; all Bitmap work lives in `ImageLoader`
+- `DiseaseInfo` maps a label to its advice strings, colour and icon. Find strings by naming convention (`<label>_title`, `<label>_what_you_see`, …). Any label without entries gets a generic neutral colour, a generic icon and a "No advice available for this result yet" text, so a new `labels.txt` never crashes the app
 - Accessibility: content descriptions on icons and images, minimum 48 dp touch targets, text that scales with system font size, and colour never as the only signal (always pair with an icon and text)
 - Support light and dark theme
 
@@ -236,6 +248,8 @@ Put this in `strings.xml` (not hard-coded in Kotlin), keyed by label. Keep sente
 - Confidence → wording mapping (thresholds 0.85 / 0.70)
 - Label file parsing
 - Argmax and probability-sum sanity checks
+- `ImagePreprocessor`: a known ARGB pixel becomes the floats R, G, B in that order, still 0–255 (not divided by 255); the buffer is 224×224×3×4 bytes
+- `DiseaseInfo` fallback for an unknown label
 
 ### 8.2 Instrumented tests (`androidTest`) — model parity
 Goal: prove the Android pipeline gives the **same predictions as Python**.
@@ -243,21 +257,25 @@ Goal: prove the Android pipeline gives the **same predictions as Python**.
 1. The project owner generates the parity set on the training machine with
    `python tools/make_parity_set.py --data-dir <training folder> --out app/src/androidTest/assets/parity`.
    This copies a few test images per class (named `<class>__<filename>`) and writes `expected.json`.
+   For the first image of each class it also writes two synthetic variants, because the iBean test images are square and have no EXIF data:
+   - `<class>__synthetic_wide__<name>.jpg`: padded to a wide, non-square image (checks the center crop)
+   - `<class>__synthetic_exif6__<name>.jpg`: pixels stored sideways with EXIF orientation 6 (checks the rotation)
 2. `expected.json` format:
    ```json
    {
      "labels": ["angular_leaf_spot", "bean_rust", "healthy"],
      "input_size": 224,
+     "resize": "tf",
      "images": {
-       "bean_rust__img_001.jpg": {"true": "bean_rust", "pred": "bean_rust", "probs": [0.01, 0.98, 0.01]}
+       "bean_rust__img_001.jpg": {"true": "bean_rust", "pred": "bean_rust", "probs": [0.01, 0.98, 0.01], "synthetic": false}
      }
    }
    ```
-3. The test runs each image through `ImagePreprocessor` + `BeanClassifier` and asserts:
+3. The test runs each image through the full app pipeline (`ImageLoader` + `ImagePreprocessor` + `BeanClassifier`), starting from the file, so EXIF and crop are covered. It asserts:
    - same predicted label as Python
    - each probability within ±0.02 of Python's value
 
-Python uses the same preprocessing as the app: center crop to square, bilinear resize to 224×224, raw 0–255 RGB floats. Small differences in JPEG decoding and resizing between PIL and Android are why the tolerance is ±0.02 rather than exact.
+Python uses the same preprocessing as the app: EXIF rotation, center crop to square, bilinear resize to 224×224 without antialiasing (`tf.image.resize`, the training default), raw 0–255 RGB floats. Small differences in JPEG decoding and bilinear resampling between TF and Android are why the tolerance is ±0.02 rather than exact. If only the synthetic images fail, the bug is in rotation or crop; if all images fail, suspect the resize or the channel order.
 
 ### 8.3 Manual test checklist
 - [ ] Photo taken in portrait and landscape gives the same result (EXIF rotation works)
@@ -288,7 +306,23 @@ When a new model is trained (for example with an extra "not a bean leaf" class o
 
 1. Export it with the same notebook (input still raw 0–255 RGB, 224×224)
 2. Replace `bean_model.tflite` and `labels.txt` in `assets/`
-3. Add advice strings for any new label
+3. Add advice strings for any new label, following the `<label>_*` naming convention (section 7). A label without strings still works and shows the generic fallback; add a colour/icon in `DiseaseInfo` only if you want a specific one
 4. Re-generate `expected.json` and re-run the parity test
 
-No Kotlin changes should be needed as long as the input contract stays the same.
+No Kotlin changes are needed as long as the input contract stays the same.
+
+---
+
+## 11. Distribution (APK download website)
+
+The APK is published on a simple static website on the owner's Hetzner VM. The website is separate from the app: the app itself still has **no INTERNET permission** and never checks for updates.
+
+| Item | Rule |
+|---|---|
+| Direct link | Stable URL that always serves the latest APK: `https://<domain>/beandoc.apk`. Versioned copies are also kept: `beandoc-<versionName>.apk` |
+| QR code | Encodes the **stable direct link** (not a versioned file), so printed posters keep working after updates. Generated locally at build time (e.g. Python `segno`); never use an online QR service. Shown on the page and downloadable as **SVG** (printing) and **PNG** (sharing), with the link printed as text underneath |
+| Page | One static `index.html` in `site/`, readable on small phones: download button, version, file size, SHA-256, QR code + download buttons, "Install unknown apps" steps, disclaimer. No analytics, trackers, external fonts or CDNs |
+| Signing | Every release signed with the **same** release key; keystore and passwords never committed (read from `local.properties` / environment variables). Losing the key means users must uninstall to update |
+| Versions | Increase `versionCode` for every published APK |
+| Server | Caddy with automatic HTTPS; serve `.apk` as `application/vnd.android.package-archive` |
+| Deploy | Script in `deploy/` rsyncs `site/` to the VM. Publishing is the owner's step; an agent prepares it but does not run it |
