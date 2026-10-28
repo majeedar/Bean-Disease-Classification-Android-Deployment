@@ -1,4 +1,115 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">BeanDoc</string>
+
+    <!-- Home -->
+    <string name="home_tagline">Check your bean leaves for disease</string>
+    <string name="home_scan">Scan a leaf</string>
+    <string name="home_gallery">Choose from gallery</string>
+    <string name="home_tips">How to take a good photo</string>
+    <string name="home_offline">Works without internet</string>
+    <string name="home_busy">Already checking a photo…</string>
+
+    <!-- Camera -->
+    <string name="camera_hint">Place one leaf inside the frame</string>
+    <string name="camera_shutter">Take photo</string>
+    <string name="camera_flash_on">Flash on</string>
+    <string name="camera_flash_off">Flash off</string>
+    <string name="camera_back">Back</string>
+    <string name="camera_error">Could not take the photo. Please try again.</string>
+    <string name="camera_unavailable">The camera could not be started. You can choose a photo from the gallery instead.</string>
+    <string name="camera_permission_title">Camera needed</string>
+    <string name="camera_permission_body">BeanDoc needs the camera to take a photo of the leaf. Photos stay on your phone and are never sent anywhere.</string>
+    <string name="camera_permission_allow">Allow camera</string>
+    <string name="camera_permission_denied_body">Camera access is turned off for BeanDoc. To scan leaves, open Settings and allow the camera.</string>
+    <string name="camera_permission_settings">Open settings</string>
+
+    <!-- Result -->
+    <string name="result_title">Result</string>
+    <string name="result_analyzing">Checking the leaf…</string>
+    <string name="result_photo_description">The photo of the leaf you scanned</string>
+    <string name="result_very_likely">Very likely</string>
+    <string name="result_likely">Likely</string>
+    <string name="result_percent">%1$d%% sure</string>
+    <string name="result_not_sure_title">Not sure</string>
+    <string name="result_not_sure_body">We could not recognise this clearly. Please take another photo of one leaf, in daylight, filling the frame.</string>
+    <string name="result_best_guess">Best guess: %1$s (%2$d%%)</string>
+    <string name="result_retake">Take another photo</string>
+    <string name="result_scan_another">Scan another leaf</string>
+    <string name="result_photo_tips">Photo tips</string>
+    <string name="result_disclaimer">This app can make mistakes. If many plants are affected, ask your local extension officer.</string>
+    <string name="result_error_image">This photo could not be opened. Please try another photo.</string>
+    <string name="result_error_model">Something went wrong while checking the photo. Please try again.</string>
+    <string name="result_try_again">Try again</string>
+
+    <!-- Advice section headings -->
+    <string name="section_what_you_see">What you see</string>
+    <string name="section_how_it_spreads">How it spreads</string>
+    <string name="section_do_now">What to do now</string>
+    <string name="section_prevent">Prevent next season</string>
+    <string name="section_keep_healthy">Keep it healthy</string>
+    <string name="advice_unavailable">No advice is available for this result yet. Ask your local extension officer.</string>
+
+    <!--
+        Advice content, keyed by the label in labels.txt (see DiseaseInfo.kt).
+        Convention: <label>_title, <label>_what_you_see, <label>_how_it_spreads (strings),
+        <label>_do_now, <label>_prevent, <label>_keep_healthy (string-arrays). All optional.
+        General guidance only: must be reviewed by a local agronomist or extension officer before release.
+    -->
+
+    <!-- angular_leaf_spot -->
+    <string name="angular_leaf_spot_title">Angular leaf spot</string>
+    <string name="angular_leaf_spot_what_you_see">Grey-brown spots with straight edges, limited by the leaf veins, so they look angular. Spots can join, and leaves may yellow and fall early. Pods can show reddish-brown spots.</string>
+    <string name="angular_leaf_spot_how_it_spreads">Through infected seed, crop leftovers in the soil, and rain splash or wind.</string>
+    <string-array name="angular_leaf_spot_do_now">
+        <item>Remove and destroy badly infected leaves and plants. Do not leave them in the field.</item>
+        <item>Avoid working in the field when plants are wet.</item>
+        <item>If the disease is spreading, ask your extension officer which fungicide is approved locally.</item>
+    </string-array>
+    <string-array name="angular_leaf_spot_prevent">
+        <item>Use certified, disease-free seed.</item>
+        <item>Rotate with a non-bean crop for at least 2 seasons.</item>
+        <item>Plough under or remove crop leftovers after harvest.</item>
+        <item>Plant resistant varieties where available.</item>
+    </string-array>
+
+    <!-- bean_rust -->
+    <string name="bean_rust_title">Bean rust</string>
+    <string name="bean_rust_what_you_see">Small, raised, rusty-brown powdery spots, mostly on the underside of leaves, often with a yellow ring. Rubbing a spot leaves brown powder on your finger.</string>
+    <string name="bean_rust_how_it_spreads">Spores carried by wind. Humid weather and morning dew help it spread.</string>
+    <string-array name="bean_rust_do_now">
+        <item>Remove heavily infected leaves early.</item>
+        <item>Do not work among wet plants. You will spread the spores.</item>
+        <item>If the disease is spreading, ask your extension officer which fungicide is approved locally.</item>
+    </string-array>
+    <string-array name="bean_rust_prevent">
+        <item>Plant resistant varieties.</item>
+        <item>Give plants enough space for air to move.</item>
+        <item>Remove volunteer bean plants and crop leftovers.</item>
+        <item>Rotate crops.</item>
+    </string-array>
+
+    <!-- healthy -->
+    <string name="healthy_title">Healthy</string>
+    <string name="healthy_what_you_see">No disease signs found on this leaf.</string>
+    <string-array name="healthy_keep_healthy">
+        <item>Check your plants every week, especially after rain.</item>
+        <item>Scan several leaves from different parts of the field. One healthy leaf does not mean the whole field is healthy.</item>
+        <item>Keep using clean seed and crop rotation.</item>
+    </string-array>
+
+    <!-- Photo tips -->
+    <string name="tips_title">How to take a good photo</string>
+    <string name="tips_one_leaf_title">One leaf at a time</string>
+    <string name="tips_one_leaf_body">Fill the frame with a single leaf.</string>
+    <string name="tips_light_title">Use daylight</string>
+    <string name="tips_light_body">Avoid harsh direct sun and strong shadows.</string>
+    <string name="tips_steady_title">Hold steady</string>
+    <string name="tips_steady_body">Keep the phone still and tap the leaf on the screen to focus.</string>
+    <string name="tips_top_side_title">Show the spots</string>
+    <string name="tips_top_side_body">Photograph the top side of the leaf, where the spots are easiest to see.</string>
+    <string name="tips_start_scan">Scan a leaf</string>
+
+    <!-- Common -->
+    <string name="navigate_back">Back</string>
 </resources>

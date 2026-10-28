@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Advice strings are looked up by label name at runtime (DiseaseInfo), so the resource shrinker cannot see them. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@string/*,@array/*" />
