@@ -1,4 +1,4 @@
-# BeanDoc: deploying a bean leaf disease classifier to low-end Android phones, fully offline
+# Phase 2: BeanDoc — deploying a bean leaf disease classifier to low-end Android phones, fully offline
 
 ![Android 7.0+](https://img.shields.io/badge/Android-7.0%2B-3DDC84?logo=android&logoColor=white)
 ![Kotlin](https://img.shields.io/badge/Kotlin-2.4-7F52FF?logo=kotlin&logoColor=white)
@@ -8,10 +8,10 @@
 
 A farmer takes a photo of a bean leaf and, in well under a second, sees whether it has **angular leaf spot**, **bean rust** or is **healthy**, how sure the app is, and what to do next. Everything runs on the phone, with no internet connection, because many bean-growing areas have weak or no mobile data.
 
-This repository is the **deployment half** of the project: it takes the trained model and turns it into a reliable product on cheap phones, with a verified preprocessing pipeline, a tested app, a signed release and a self-hosted download site.
+This repository is **Phase 2 (deployment)** of the project: it takes the trained model and turns it into a reliable product on cheap phones, with a verified preprocessing pipeline, a tested app, a signed release and a self-hosted download site.
 
-> **Part 1: model training and evaluation** → [Bean-Disease-Classification-with-MobileNet-Transformer-Architecture](https://github.com/majeedar/Bean-Disease-Classification-with-MobileNet-Transformer-Architecture)
-> **Part 2: deployment** → this repository
+> **Phase 1: model training and evaluation** → [Bean-Disease-Classification-with-MobileNet-Transformer-Architecture](https://github.com/majeedar/Bean-Disease-Classification-with-MobileNet-Transformer-Architecture)
+> **Phase 2: deployment** → this repository
 
 | Angular leaf spot | Bean rust | Healthy | Not sure (retake) |
 |:---:|:---:|:---:|:---:|
@@ -67,11 +67,11 @@ This repository is the **deployment half** of the project: it takes the trained 
 
 ```mermaid
 flowchart LR
-    subgraph Training["Part 1: training repo (Python, TF 2.17)"]
+    subgraph Training["Phase 1: training repo (Python, TF 2.17)"]
         D[iBean dataset] --> K[MobileNetV3-Large<br/>fine-tuned in Keras]
         K --> T[bean_model.tflite<br/>dynamic-range quantized<br/>3.3 MB]
     end
-    subgraph Deploy["Part 2: this repo"]
+    subgraph Deploy["Phase 2: this repo"]
         T --> P[tools/make_parity_set.py<br/>Python reference outputs]
         T --> A[Android app<br/>Kotlin · Compose · CameraX · LiteRT]
         P --> PT[Instrumented parity test]
