@@ -68,8 +68,9 @@ Then prompt:
 ```
 Implement the instrumented parity test from AGENTS.md section 8.2. Test images and
 expected.json are in app/src/androidTest/assets/parity/. For every entry, run the image
-through ImagePreprocessor + BeanClassifier and assert the same predicted label and each
-probability within ±0.02. Print a per-image table in the test log.
+through ImageLoader + ImagePreprocessor + BeanClassifier and assert the model input
+matches input_grid (±0.01), the same predicted label, and each probability within ±0.10.
+Print a per-image table in the test log.
 ```
 
 **You verify:** `./gradlew connectedAndroidTest` passes on your device/emulator. If it fails, stop here and fix preprocessing before building UI. This is the most important test in the project.

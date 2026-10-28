@@ -10,13 +10,13 @@ import java.io.IOException
 import java.io.InputStream
 
 /**
- * Turns a photo into the 224×224 square the model sees:
- * decode (downsampled) → EXIF rotation → center crop → bilinear resize.
- * Matches tools/make_parity_set.py, which in turn matches training.
+ * Turns a photo into the square the model sees: decode (downsampled) → EXIF rotation → center crop.
+ * [ImagePreprocessor] then resizes it to 224×224. Together they match tools/make_parity_set.py,
+ * which in turn matches training.
  */
 class ImageLoader(private val contentResolver: ContentResolver) {
 
-    /** Returns a 224×224 ARGB_8888 bitmap. Call off the main thread. */
+    /** Returns the center square (ARGB_8888, shortest side ≥ 2 × [size] when the photo allows). Call off the main thread. */
     @Throws(IOException::class)
     fun load(uri: Uri, size: Int = ImagePreprocessor.INPUT_SIZE): Bitmap {
         val decoded = decode(uri, size)
@@ -24,9 +24,7 @@ class ImageLoader(private val contentResolver: ContentResolver) {
         val (left, top, side) = centerSquare(rotated.width, rotated.height)
         val cropped = Bitmap.createBitmap(rotated, left, top, side, side)
         if (cropped !== rotated) rotated.recycle()
-        val scaled = Bitmap.createScaledBitmap(cropped, size, size, true)
-        if (scaled !== cropped) cropped.recycle()
-        return scaled
+        return cropped
     }
 
     private fun decode(uri: Uri, size: Int): Bitmap {

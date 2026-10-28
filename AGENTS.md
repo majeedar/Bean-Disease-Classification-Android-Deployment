@@ -55,8 +55,10 @@ Read labels from `labels.txt` at runtime; never hard-code the order in more than
 1. Decode the photo to an `ARGB_8888` Bitmap, downsampling large photos while decoding. Min SDK is 24, so use `BitmapFactory` with `inSampleSize` (`ImageDecoder` exists only on API 28+). Keep at least 224 px on the shortest side.
 2. **Apply EXIF rotation** (camera photos are often stored sideways). Use `androidx.exifinterface`.
 3. **Center-crop to a square** (shortest side).
-4. **Resize to 224×224** with plain bilinear filtering (`Bitmap.createScaledBitmap(..., filter = true)`). This matches `tf.image.resize` without antialiasing, which `tools/make_parity_set.py` uses by default (`--resize tf`). The `resize` field in `expected.json` records which method the reference used.
-5. Copy pixels into a direct `ByteBuffer` (native byte order) as float32 R, G, B (0–255), row by row.
+4. **Resize to 224×224** with bilinear filtering exactly as `tf.image.resize(method="bilinear", antialias=False)` does it (half-pixel centers), keeping the interpolated values as floats. This is done in pure Kotlin in `ImagePreprocessor`, **not** with `Bitmap.createScaledBitmap`: Android's resampler uses different sample positions and was measured to shift predictions by up to 0.03. `tools/make_parity_set.py` uses the same TF resize by default (`--resize tf`).
+5. Write the values into a direct `ByteBuffer` (native byte order) as float32 R, G, B (0–255), row by row (steps 4 and 5 happen together).
+
+Measured on the emulator: Android's JPEG decoding is bit-identical to PIL's, and the final model input matches Python to within 0.001.
 
 Training images were resized to 224×224 without cropping, but a center crop is closer to how a farmer frames a leaf. If parity tests (section 8) fail, try plain resize without crop to compare.
 
@@ -107,8 +109,8 @@ app/src/main/
 │   ├── MainActivity.kt
 │   ├── ml/
 │   │   ├── BeanClassifier.kt        # loads model, runs inference, returns Prediction
-│   │   ├── ImageLoader.kt           # Uri -> decode (downsampled), EXIF rotate, center crop, resize (Android)
-│   │   ├── ImagePreprocessor.kt     # pure Kotlin: ARGB IntArray -> float ByteBuffer (JVM-testable)
+│   │   ├── ImageLoader.kt           # Uri -> decode (downsampled), EXIF rotate, center crop (Android)
+│   │   ├── ImagePreprocessor.kt     # pure Kotlin: square ARGB IntArray -> TF-bilinear 224×224 float ByteBuffer (JVM-testable)
 │   │   └── Prediction.kt            # data class: label, confidence, all probabilities
 │   ├── data/
 │   │   └── DiseaseInfo.kt           # looks up advice/colour/icon by label, with a generic fallback
@@ -235,7 +237,7 @@ Put this in `strings.xml` (not hard-coded in Kotlin), keyed by label. Keep sente
 - Downscale large photos while decoding (`BitmapFactory` + `inSampleSize`; see section 2) to avoid out-of-memory errors on cheap phones
 - Recycle intermediate bitmaps where practical
 - `BeanClassifier` must validate at load time that the model's input shape is `[1, 224, 224, 3]` and the output length equals the number of labels; fail with a clear error otherwise
-- Keep `ImagePreprocessor` a pure Kotlin function (224×224 ARGB `IntArray` in → float `ByteBuffer` out) with no `android.*` imports, so it runs in JVM unit tests. `android.graphics.Bitmap` is a stub on the JVM; all Bitmap work lives in `ImageLoader`
+- Keep `ImagePreprocessor` a pure Kotlin function (square ARGB `IntArray` of any size in → 224×224 float `ByteBuffer` out) with no `android.*` imports, so it runs in JVM unit tests. `android.graphics.Bitmap` is a stub on the JVM; all Bitmap work lives in `ImageLoader`
 - `DiseaseInfo` maps a label to its advice strings, colour and icon. Find strings by naming convention (`<label>_title`, `<label>_what_you_see`, …). Any label without entries gets a generic neutral colour, a generic icon and a "No advice available for this result yet" text, so a new `labels.txt` never crashes the app
 - Accessibility: content descriptions on icons and images, minimum 48 dp touch targets, text that scales with system font size, and colour never as the only signal (always pair with an icon and text)
 - Support light and dark theme
@@ -248,7 +250,7 @@ Put this in `strings.xml` (not hard-coded in Kotlin), keyed by label. Keep sente
 - Confidence → wording mapping (thresholds 0.85 / 0.70)
 - Label file parsing
 - Argmax and probability-sum sanity checks
-- `ImagePreprocessor`: a known ARGB pixel becomes the floats R, G, B in that order, still 0–255 (not divided by 255); the buffer is 224×224×3×4 bytes
+- `ImagePreprocessor`: a known ARGB pixel becomes the floats R, G, B in that order, still 0–255 (not divided by 255); the buffer is 224×224×3×4 bytes; resized values equal `tf.image.resize` reference values
 - `DiseaseInfo` fallback for an unknown label
 
 ### 8.2 Instrumented tests (`androidTest`) — model parity
@@ -266,16 +268,23 @@ Goal: prove the Android pipeline gives the **same predictions as Python**.
      "labels": ["angular_leaf_spot", "bean_rust", "healthy"],
      "input_size": 224,
      "resize": "tf",
+     "grid_stride": 16,
      "images": {
-       "bean_rust__img_001.jpg": {"true": "bean_rust", "pred": "bean_rust", "probs": [0.01, 0.98, 0.01], "synthetic": false}
+       "bean_rust__img_001.jpg": {"true": "bean_rust", "pred": "bean_rust", "probs": [0.01, 0.98, 0.01], "synthetic": false,
+                                  "input_grid": [112.25, 140.5, 61.0, "... model input at every 16th row/column, R G B"]}
      }
    }
    ```
-3. The test runs each image through the full app pipeline (`ImageLoader` + `ImagePreprocessor` + `BeanClassifier`), starting from the file, so EXIF and crop are covered. It asserts:
+3. The test runs each image through the full app pipeline (`ImageLoader` + `ImagePreprocessor` + `BeanClassifier`), starting from a file `Uri`, so EXIF and crop are covered. It asserts:
+   - **model input** within ±0.01 of Python's at every grid point (strict: this is the part the app controls)
    - same predicted label as Python
-   - each probability within ±0.02 of Python's value
+   - each probability within ±0.10 of Python's value
 
-Python uses the same preprocessing as the app: EXIF rotation, center crop to square, bilinear resize to 224×224 without antialiasing (`tf.image.resize`, the training default), raw 0–255 RGB floats. Small differences in JPEG decoding and bilinear resampling between TF and Android are why the tolerance is ±0.02 rather than exact. If only the synthetic images fail, the bug is in rotation or crop; if all images fail, suspect the resize or the channel order.
+Python uses the same preprocessing as the app: EXIF rotation, center crop to square, bilinear resize to 224×224 without antialiasing (`tf.image.resize`, the training default), raw 0–255 RGB floats.
+
+Why the probability tolerance is ±0.10 and not ±0.02: the dynamic-range quantized model gives slightly different probabilities on different runtimes **even for byte-identical input**. Measured on `bean_rust_test.11`: TF 2.17 Python with XNNPACK 0.825, without XNNPACK 0.911, LiteRT 2.3.2 on Android 0.778. Labels agree on all parity images; borderline images (top probability near 0.5) could flip, so keep the parity set to images Python predicts confidently.
+
+If the input check fails only on synthetic images, the bug is in rotation or crop; if it fails on all images, suspect the resize, channel order or normalisation.
 
 ### 8.3 Manual test checklist
 - [ ] Photo taken in portrait and landscape gives the same result (EXIF rotation works)

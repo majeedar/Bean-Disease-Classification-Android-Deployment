@@ -7,7 +7,7 @@ then writes:
     <out>/<class>__<filename>                    copies of the images
     <out>/<class>__synthetic_wide__<name>.jpg    non-square copy (checks the center crop)
     <out>/<class>__synthetic_exif6__<name>.jpg   sideways copy + EXIF orientation 6 (checks rotation)
-    <out>/expected.json                          predicted label + probabilities from Python
+    <out>/expected.json                          predicted label, probabilities and sampled model input
 
 The Android instrumented test checks that the app produces the same results.
 
@@ -32,6 +32,7 @@ import tensorflow as tf
 from PIL import Image, ImageOps
 
 SIZE = 224
+GRID_STRIDE = 16
 EXIF_ORIENTATION = 0x0112
 
 
@@ -88,7 +89,8 @@ def main():
     inp, out = it.get_input_details()[0], it.get_output_details()[0]
 
     def predict(path, cls, synthetic):
-        it.set_tensor(inp["index"], center_crop_resize(path, args.resize)[None])
+        x = center_crop_resize(path, args.resize)
+        it.set_tensor(inp["index"], x[None])
         it.invoke()
         p = it.get_tensor(out["index"])[0]
         results[os.path.basename(path)] = {
@@ -96,6 +98,8 @@ def main():
             "pred": labels[int(p.argmax())],
             "probs": [round(float(v), 4) for v in p],
             "synthetic": synthetic,
+            # Model input at every GRID_STRIDE-th pixel (row-major, R G B), to check preprocessing exactly.
+            "input_grid": [round(float(v), 3) for v in x[::GRID_STRIDE, ::GRID_STRIDE].flatten()],
         }
 
     results = {}
@@ -112,7 +116,7 @@ def main():
 
     with open(os.path.join(args.out, "expected.json"), "w") as f:
         json.dump({"labels": labels, "input_size": SIZE, "resize": args.resize,
-                   "images": results}, f, indent=2)
+                   "grid_stride": GRID_STRIDE, "images": results}, f, indent=1)
 
     correct = sum(r["true"] == r["pred"] for r in results.values())
     print(f"Wrote {len(results)} images to {args.out} ({correct}/{len(results)} predicted correctly)")
