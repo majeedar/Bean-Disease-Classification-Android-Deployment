@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simple bean leaf on the adaptive-icon safe zone (centre 66dp of 108dp). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,28 C70,34 78,48 74,62 C70,74 60,80 54,82 C48,80 38,74 34,62 C30,48 38,34 54,28 Z" />
+    <path
+        android:strokeColor="#2E7D32"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M54,34 L54,86 M54,48 L64,42 M54,58 L66,52 M54,48 L44,42 M54,58 L42,52 M54,68 L62,64 M54,68 L46,64" />
+</vector>
